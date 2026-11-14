@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mars Survival Map - NASA Heist | Space Apps 2026</title>
+<link rel="preconnect" href="https://trek.nasa.gov">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="leaflet.css">
+<style>
+  :root {
+    --bg:#0c0a09; --panel:rgba(22,18,14,.92); --card:rgba(255,255,255,.035);
+    --ink:#f5ede1; --mut:#b3a48f; --dim:#7d7160;
+    --acc:#ff7a45; --acc2:#ffb347; --line:rgba(255,180,120,.14);
+  }
+  * { box-sizing:border-box; }
+  html,body { height:100%; }
+  body { margin:0; font:15px/1.55 'Inter',system-ui,sans-serif; background:var(--bg); color:var(--ink); }
+
+  /* ---------- header ---------- */
+  header {
+    position:relative; padding:14px 20px; overflow:hidden;
+    background:
+      radial-gradient(900px 300px at 85% -60%, rgba(255,122,69,.28), transparent 60%),
+      radial-gradient(600px 260px at 15% -80%, rgba(120,90,255,.18), transparent 60%),
+      linear-gradient(180deg,#171009,#0e0b08);
+    border-bottom:1px solid var(--line);
+  }
+  header::after { /* starfield */
+    content:""; position:absolute; inset:0; pointer-events:none; opacity:.55;
+    background-image:
+      radial-gradient(1px 1px at 12% 30%, #fff, transparent),
+      radial-gradient(1px 1px at 33% 70%, #ffd9b0, transparent),
+      radial-gradient(1.5px 1.5px at 52% 20%, #fff, transparent),
+      radial-gradient(1px 1px at 68% 55%, #ffe, transparent),
+      radial-gradient(1px 1px at 81% 25%, #fff, transparent),
+      radial-gradient(1.5px 1.5px at 91% 66%, #ffd9b0, transparent),
+      radial-gradient(1px 1px at 44% 85%, #fff, transparent),
+      radial-gradient(1px 1px at 24% 52%, #ffe, transparent);
+  }
+  .hrow { position:relative; display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; z-index:1; }
+  header h1 { margin:0; font-family:'Space Grotesk',sans-serif; font-size:clamp(19px,2.6vw,26px); font-weight:700; letter-spacing:.2px; }
+  header h1 .mars { color:var(--acc); }
+  .chip { position:relative; z-index:1; font:600 11px 'Space Grotesk'; letter-spacing:1.2px; text-transform:uppercase;
+          color:var(--acc2); border:1px solid rgba(255,179,71,.4); padding:4px 10px; border-radius:99px;
+          background:rgba(255,179,71,.08); white-space:nowrap; }
+  header p { position:relative; z-index:1; margin:4px 0 0; color:var(--mut); font-size:13px; }
+
+  /* ---------- layout ---------- */
+  main { display:flex; flex-wrap:wrap; }
+  #mapwrap { flex:1 1 620px; min-width:320px; position:relative; }
+  #map { height:calc(100vh - 118px); min-height:430px; background:#160f0a; }
+  aside { flex:0 1 430px; max-width:480px; min-width:300px; border-left:1px solid var(--line);
+          height:calc(100vh - 118px); overflow-y:auto; background:var(--panel); backdrop-filter:blur(6px); }
+
+  /* ---------- tabs ---------- */
+  .tabs { display:flex; gap:8px; position:sticky; top:0; z-index:6; padding:10px 12px;
+          background:rgba(14,11,9,.96); border-bottom:1px solid var(--line); }
+  .tabs button { flex:1; padding:8px 4px; border-radius:99px; border:1px solid transparent; background:none;
+                 color:var(--mut); font:600 13px 'Space Grotesk'; letter-spacing:.4px; cursor:pointer; transition:.15s; }
+  .tabs button:hover { color:var(--ink); }
+  .tabs button.on { color:#1a120c; background:linear-gradient(120deg,var(--acc),var(--acc2)); }
+
+  .tabpage { display:none; padding:14px 16px 30px; }
+  .tabpage.on { display:block; }
+  .hint { color:var(--mut); font-size:13px; margin:2px 0 10px; }
+
+  /* ---------- site cards ---------- */
+  .site-card { border:1px solid var(--line); background:var(--card); border-radius:14px;
+               padding:12px 14px; margin:12px 0; cursor:pointer; transition:transform .15s, border-color .15s, box-shadow .15s;
+               border-left:4px solid var(--c, var(--acc)); }
+  .site-card:hover { transform:translateY(-2px); box-shadow:0 6px 22px rgba(0,0,0,.4); }
+  .site-card.sel { border-color:var(--c, var(--acc)); box-shadow:0 0 0 1px var(--c, var(--acc)), 0 6px 22px rgba(0,0,0,.4); }
+  .site-card h3 { margin:3px 0 2px; font:600 17px 'Space Grotesk'; }
+  .site-card .tag { display:inline-block; color:var(--c, var(--acc)); font:600 10.5px 'Space Grotesk';
+                    text-transform:uppercase; letter-spacing:1.1px; }
+  .site-card p { margin:4px 0 0; color:var(--mut); font-size:13px; }
+  .facts { margin:10px 0 0; padding-left:18px; font-size:13px; }
+  .facts li { margin:6px 0; color:#ddd0bd; }
+  .facts b { color:var(--ink); }
+  .src { color:var(--dim); font-size:11.5px; margin-top:8px; }
+
+  /* ---------- compare ---------- */
+  table.cmp { width:100%; border-collapse:separate; border-spacing:0; font-size:12.5px; border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  table.cmp th, table.cmp td { padding:8px 9px; text-align:left; vertical-align:top; border-bottom:1px solid var(--line); }
+  table.cmp thead th { background:rgba(255,122,69,.12); font:600 11px 'Space Grotesk'; letter-spacing:.6px; text-transform:uppercase; color:var(--acc2); }
+  table.cmp tbody th { font:600 12px 'Space Grotesk'; color:var(--ink); }
+  table.cmp tbody tr:nth-child(even) { background:rgba(255,255,255,.025); }
+  table.cmp tbody tr:last-child th, table.cmp tbody tr:last-child td { border-bottom:none; }
+  table.cmp td { color:#cfc2ae; }
+
+  .note { border:1px solid rgba(140,220,140,.25); background:rgba(120,200,120,.07); border-radius:12px;
+          padding:11px 13px; margin:14px 0; font-size:13px; color:#cfe6c9; }
+  .warn { border:1px solid rgba(255,180,71,.3); background:rgba(255,150,50,.08); border-radius:12px;
+          padding:11px 13px; margin:12px 0; font-size:13px; color:#f0d9bd; }
+  .warn b, .note b { color:var(--ink); }
+
+  h4.sec { font:600 13px 'Space Grotesk'; letter-spacing:1px; text-transform:uppercase; color:var(--acc2); margin:18px 0 8px; }
+  h3.pt { font:600 18px 'Space Grotesk'; margin:4px 0 2px; }
+  a { color:#ffb183; }
+
+  .evt { border:1px solid var(--line); border-left:3px solid var(--acc); border-radius:8px;
+         padding:7px 11px; margin:9px 0; font-size:13px; background:var(--card); }
+  .evt small { color:var(--mut); display:block; margin-top:2px; }
+
+  /* ---------- custom map controls ---------- */
+  .layer-ctl { position:absolute; top:12px; right:12px; z-index:800; background:var(--panel);
+               border:1px solid var(--line); border-radius:14px; padding:10px 12px; min-width:190px;
+               backdrop-filter:blur(8px); box-shadow:0 8px 24px rgba(0,0,0,.45); }
+  .layer-ctl .lt { font:600 10.5px 'Space Grotesk'; letter-spacing:1.2px; text-transform:uppercase; color:var(--dim); margin-bottom:8px; }
+  .swrow { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:7px 0; }
+  .swrow label { font:500 13px 'Inter'; color:var(--ink); cursor:pointer; }
+  .switch { position:relative; width:38px; height:21px; flex:none; cursor:pointer; }
+  .switch input { opacity:0; width:0; height:0; }
+  .track { position:absolute; inset:0; background:#3a3026; border-radius:99px; transition:.2s; border:1px solid var(--line); }
+  .track::before { content:""; position:absolute; left:2px; top:2px; width:15px; height:15px; border-radius:50%;
+                   background:#8d7f6d; transition:.2s; }
+  .switch input:checked + .track { background:linear-gradient(120deg,var(--acc),var(--acc2)); }
+  .switch input:checked + .track::before { transform:translateX(17px); background:#1a120c; }
+  .oprow { display:flex; align-items:center; gap:8px; margin:2px 0 6px; }
+  .oprow input[type=range] { flex:1; accent-color:var(--acc); height:2px; }
+  .oprow span { font-size:11px; color:var(--dim); width:34px; text-align:right; }
+
+  /* ---------- map markers ---------- */
+  .mk { position:relative; }
+  .mk .dot { position:absolute; left:-7px; top:-7px; width:14px; height:14px; border-radius:50%;
+             background:var(--c); border:2px solid rgba(255,255,255,.85); box-shadow:0 0 10px var(--c); }
+  .mk .pulse { position:absolute; left:-13px; top:-13px; width:26px; height:26px; border-radius:50%;
+               border:2px solid var(--c); opacity:.8; animation:pulse 2.2s ease-out infinite; }
+  @keyframes pulse { 0%{transform:scale(.5);opacity:.9} 100%{transform:scale(1.8);opacity:0} }
+  .mk .lbl { position:absolute; left:12px; top:-9px; white-space:nowrap; font:600 12px 'Space Grotesk';
+             color:#fff; text-shadow:0 1px 4px #000, 0 0 8px rgba(0,0,0,.9); letter-spacing:.3px; }
+
+  /* ---------- leaflet chrome restyle ---------- */
+  .leaflet-bar a { background:#16120e; color:#f2e9dc; border-color:#3a332a; }
+  .leaflet-bar a:hover { background:#2b241c; }
+  .leaflet-control-attribution { background:rgba(12,10,9,.75) !important; color:#7d7160 !important; font-size:10.5px !important; }
+  .leaflet-control-attribution a { color:#7d7160 !important; }
+
+  footer { padding:12px 20px; color:var(--dim); font-size:12px; border-top:1px solid var(--line); background:#0a0806; }
+
+  @media (max-width:760px) {
+    #map { height:56vh; min-height:340px; }
+    aside { max-width:none; flex:1 1 100%; height:auto; border-left:none; border-top:1px solid var(--line); }
+    .layer-ctl { top:auto; bottom:14px; right:12px; }
+    .mk .lbl { font-size:11px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="hrow">
+    <h1><span class="mars">&#9794;</span> Mars Survival Map</h1>
+    <span class="chip">4 candidate sites</span>
+    <span class="chip">3 live NASA / USGS layers</span>
+  </div>
+  <p>Comparing Jezero &middot; Gale &middot; Valles Marineris &middot; Arcadia Planitia for a future crewed mission &mdash;
+     Team NASA Heist (Sourav Garai) &middot; NASA Space Apps 2026 &middot; &ldquo;Interplanetary Survival Guide: Martian Map&rdquo;</p>
+</header>
+<main>
+  <div id="mapwrap">
+    <div id="map"></div>
+    <div class="layer-ctl">
+      <div class="lt">Map layers</div>
+      <div class="swrow"><label for="sw-mola">Topography (MOLA)</label>
+        <span class="switch"><input type="checkbox" id="sw-mola"><span class="track"></span></span></div>
+      <div class="oprow"><input type="range" id="op-mola" min="20" max="100" value="55"><span id="op-mola-v">55%</span></div>
+      <div class="swrow"><label for="sw-geo">Geology (USGS)</label>
+        <span class="switch"><input type="checkbox" id="sw-geo"><span class="track"></span></span></div>
+      <div class="oprow"><input type="range" id="op-geo" min="20" max="100" value="60"><span id="op-geo-v">60%</span></div>
+    </div>
+  </div>
+  <aside>
+    <div class="tabs">
+      <button id="tab-sites" class="on" onclick="showTab('sites')">Sites</button>
+      <button id="tab-compare" onclick="showTab('compare')">Compare</button>
+      <button id="tab-safety" onclick="showTab('safety')">Crew Safety</button>
+    </div>
+    <div id="page-sites" class="tabpage on">
+      <p class="hint">Tap a site to fly to it. Toggle topography and geology on the map control.</p>
+      <div id="site-list"></div>
+    </div>
+    <div id="page-compare" class="tabpage">
+      <h3 class="pt">Side-by-side evidence</h3>
+      <table class="cmp">
+        <thead><tr><th></th><th>Water / ice evidence</th><th>Elevation</th><th>Terrain evidence</th><th>Open questions</th></tr></thead>
+        <tbody>
+        <tr><th>Arcadia Planitia</th><td>Multiple remote-sensing datasets consistent with ice &lt;30 cm down (SWIM)</td><td>about -3 to -4 km</td><td>Smooth, few rocks, slopes &lt;5&deg; in studied ellipses</td><td>Ice depth and purity vary; never directly sampled</td></tr>
+        <tr><th>Gale Crater</th><td>Ancient lake and stream deposits (past water only)</td><td>about -4.4 km</td><td>Rover landing ellipse proven 2012; sandy floor</td><td>No near-surface ice mapped here</td></tr>
+        <tr><th>Jezero Crater</th><td>Ancient lake and river delta deposits (past water only)</td><td>about -2.6 km</td><td>Rover landing proven 2021; some rocky units</td><td>Origin of some floor units still debated</td></tr>
+        <tr><th>Valles Marineris</th><td>Seasonal dark flows (RSL) with hydrated salts; link to liquid water debated</td><td>floor about -4 to -5 km</td><td>Up to ~7 km relief, walls &gt;25&deg;, landslides</td><td>RSL source unresolved; any brines inaccessible to date</td></tr>
+        </tbody>
+      </table>
+      <div class="note"><b>How to read this table:</b> it lists published evidence only, each row traceable to the sources below. This map does not pick a site - the trade-off between ice access, terrain, safety data and science belongs to the crew and mission planners comparing them.</div>
+      <p class="src">Sources: NASA SWIM "treasure map" (2019); Hassler et al. 2014 (Science); NASA/JPL Mars 2020 &amp; MSL mission pages; USGS; McEwen et al. 2015 (JGR); Golombek et al. 2021 (LPSC).</p>
+    </div>
+    <div id="page-safety" class="tabpage">
+      <h3 class="pt">Crew safety</h3>
+      <h4 class="sec">Recent solar activity (context)</h4>
+      <div id="donki">Loading latest events from NASA DONKI...</div>
+      <div class="warn"><b>Honest scope:</b> these are <b>solar</b> events (CMEs, flares) recorded by Sun-Earth-line spacecraft (SOHO, STEREO, GOES) via NASA's DONKI catalog. They are <b>not</b> measurements of radiation at Mars. No public feed measures live radiation on the Martian surface today; solar particle events take hours to days to reach Mars, and Mars is usually far from the Sun-Earth line. Treat this panel as "what is the Sun doing", not "is it safe to go outside".</div>
+      <h4 class="sec">What we actually measured on Mars</h4>
+      <ul class="facts">
+        <li><b>MSL Curiosity's RAD instrument (Gale Crater, 2012-2013):</b> average dose equivalent on the surface <b>0.64 &plusmn; 0.12 mSv/day</b> (absorbed dose 0.21 &plusmn; 0.04 mGy/day) - roughly half the dose measured during the cruise to Mars, thanks to shielding by the atmosphere and the planet itself.</li>
+        <li>That is about <b>230 mSv per Earth year</b> on the surface, before any habitat shielding - the central number for crew career-dose planning at any of the four sites.</li>
+        <li>One solar energetic particle (SEP) event added about <b>50 &micro;Sv</b> in a day on top of the background - solar storms matter, but the everyday galactic cosmic ray background dominates.</li>
+        <li><b>Site effect:</b> deeper sites (Gale -4.4 km, Arcadia -3 to -4 km, Valles floor -4 to -5 km) sit under more atmosphere = more shielding; Jezero at -2.6 km gets somewhat less.</li>
+      </ul>
+      <h4 class="sec">Dust and other environmental hazards</h4>
+      <ul class="facts">
+        <li>Mars has regional and occasional planet-encircling dust storms (the 2018 global storm ended the Opportunity rover). They cut solar power and visibility for weeks - any site plan needs stored power or nuclear backup.</li>
+        <li>Fine dust is present at all four sites; NASA's ice map marks some dusty ground as unsafe to land on (it may not bear a lander's weight).</li>
+      </ul>
+      <p class="src">Sources: Hassler et al. 2014, Science 343 (MSL RAD); Zeitlin et al. 2013; NASA DONKI (CCMC); NASA/JPL dust-storm coverage.</p>
+    </div>
+  </aside>
+</main>
+<footer>
+  Data: NASA Mars Trek WMTS (Viking MDIM21 optical mosaic; MGS MOLA topography) &middot; USGS global geologic map of Mars (Tanaka et al. 2014, SIM 3292) &middot; NASA DONKI space weather &middot; MSL RAD (Gale) measurements.
+  Map: Leaflet (open source). Team NASA Heist - Sourav Garai. Built with AI assistance (disclosed in the project submission). All site facts are from the published NASA/USGS sources listed above.
+</footer>
+<script src="leaflet.js"></script>
+<script>
+/* ---- verified layer setup (tested Nov 14, 2026) ---- */
+const TREK = 'https://trek.nasa.gov/tiles/Mars/EQ/';
+const MDIM21 = TREK + 'Mars_Viking_MDIM21_ClrMosaic_global_232m/1.0.0/default/default028mm/{z}/{y}/{x}.jpg';
+const MOLA   = TREK + 'Mars_MGS_MOLA_ClrShade_merge_global_463m/1.0.0/default/default028mm/{z}/{y}/{x}.jpg';
+const USGS   = 'https://tiles.arcgis.com/tiles/nzS0F0zdNLvs7nc8/arcgis/rest/services/' +
+               'Mars_geology_All_layers_100pct/MapServer/tile/{z}/{y}/{x}';
+
+/* USGS cache is in wkid 104971 = Mars_2000_(Sphere) GEOGRAPHIC CRS (degrees, Plate Carree).
+   Same projection family as Trek default028mm; only the tile grid differs:
+   USGS origin (-180,+180), level L res 1.40625/2^L deg/px  =>
+   Leaflet EPSG4326 zoom z == USGS level z+1, tile (x, y+2^(z-1), z+1). Cache exists to level 6. */
+const USGSGeologyLayer = L.GridLayer.extend({
+  createTile: function(coords) {
+    const div = document.createElement('div');
+    const z = coords.z, H = 180 / Math.pow(2, z), res = H / 256;
+    const latTop = 90 - coords.y * H, latBottom = latTop - H;
+    const k1 = Math.floor((180 - latTop) / H);
+    const k2 = Math.floor((180 - latBottom - 1e-9) / H);
+    for (let ky = k1; ky <= k2; ky++) {
+      const img = document.createElement('img');
+      img.src = USGS.replace('{z}', z + 1).replace('{y}', ky).replace('{x}', coords.x);
+      img.style.position = 'absolute'; img.style.left = '0px';
+      img.style.width = img.style.height = '256px';
+      img.style.top = ((latTop - (180 - ky * H)) / res) + 'px';
+      img.onerror = () => img.remove();
+      div.appendChild(img);
+    }
+    return div;
+  }
+});
+
+const map = L.map('map', { crs: L.CRS.EPSG4326, minZoom: 1, maxZoom: 7, zoomControl: true });
+const mdim = L.tileLayer(MDIM21, { maxZoom: 7, tileSize: 256,
+  attribution: 'NASA Mars Trek (MDIM21, MOLA) | USGS SIM 3292' }).addTo(map);
+const mola = L.tileLayer(MOLA, { maxZoom: 7, tileSize: 256, opacity: 0.55 });
+const geo  = new USGSGeologyLayer({ maxZoom: 7, maxNativeZoom: 5, tileSize: 256, opacity: 0.6 });
+
+/* custom layer switches */
+function bindLayer(swId, opId, layer) {
+  const sw = document.getElementById(swId), op = document.getElementById(opId),
+        lb = document.getElementById(opId + '-v');
+  sw.addEventListener('change', () => sw.checked ? layer.addTo(map) : map.removeLayer(layer));
+  op.addEventListener('input', () => { layer.setOpacity(op.value / 100); lb.textContent = op.value + '%'; });
+}
+bindLayer('sw-mola', 'op-mola', mola);
+bindLayer('sw-geo', 'op-geo', geo);
+
+/* ---- the four candidate sites ---- */
+const SITES = [
+ { name:'Arcadia Planitia', lat:40.0, lon:-177.0, color:'#57c7ff', tag:'Shallow-ice evidence, smooth plains',
+   blurb:'Northern lowland plain; several remote-sensing datasets point to shallow ground ice; very flat terrain.',
+   facts:[
+    '<b>Water/ice evidence:</b> NASA&#39;s 2019 SWIM "treasure map" (combining neutron, radar, thermal and terrain data) shows signals consistent with water ice <b>less than 30 cm below the surface</b> over wide areas; NASA described Arcadia as "the most tempting target in the northern hemisphere". Note: this is remote-sensing consistency, not direct sampling.',
+    '<b>Elevation:</b> about <b>-3 to -4 km</b>; very flat with few rocks; studied ellipses meet published landing-safety criteria (slopes &lt;5&deg;). Evaluated as a Starship candidate region (sites AP-1, AP-8, AP-9).',
+    '<b>Geology:</b> Amazonian lava plains with ice-related periglacial polygons.',
+    '<b>Uncertainty:</b> ice depth and purity vary across the region; no lander has sampled it. Mid-latitude = colder nights, seasonal CO2 frost.'
+   ], src:'NASA SWIM 2019; Planetary Science Institute; Golombek et al., LPSC 2021' },
+ { name:'Gale Crater', lat:-4.59, lon:137.44, color:'#ffd25e', tag:'Only site with surface radiation data',
+   blurb:'Curiosity rover&#39;s home since 2012: ancient lake, organics, and the only surface radiation dataset.',
+   facts:[
+    '<b>Water (past):</b> a long-lived freshwater lake and streams (Yellowknife Bay); clay minerals and organics found by Curiosity (landed Aug 6, 2012).',
+    '<b>Elevation:</b> about <b>-4.4 km</b> (MOLA) - a deep atmosphere column above the floor, which helps landing braking and radiation shielding.',
+    '<b>Radiation:</b> the only site with direct measurements: MSL RAD recorded <b>0.64 &plusmn; 0.12 mSv/day</b> on the surface (2012-13).',
+    '<b>Evidence notes:</b> a 1-ton rover landed here successfully in 2012; flat sandy floor in the ellipse; basaltic dust and dust devils; Mount Sharp&#39;s slopes are a traverse hazard if crews climb.'
+   ], src:'Hassler et al. 2014 (Science); NASA MSL mission' },
+ { name:'Jezero Crater', lat:18.41, lon:77.69, color:'#8ee08a', tag:'Ancient lake delta, rover in place',
+   blurb:'Perseverance&#39;s landing site: an ancient lake delta with high biosignature-preservation potential.',
+   facts:[
+    '<b>Water (past):</b> orbital and rover evidence of a lake thought to have been at least ~250 m deep about <b>3.8 billion years ago</b>, fed by two rivers with an outflow channel; the western fan is confirmed as a river delta; carbonates and clays can preserve biosignatures.',
+    '<b>Elevation:</b> floor about <b>-2.6 km</b> - low, so good atmospheric braking for landing.',
+    '<b>Geology:</b> Noachian crater on the Isidis basin rim; delta sediments plus volcanic floor units; Perseverance landed here Feb 18, 2021 and is caching samples.',
+    '<b>Evidence notes:</b> a 1-ton rover landed here successfully in 2021; some rocky and cratered units; dust devils frequent; at -2.6 km the atmosphere above gives somewhat less radiation shielding than deeper sites.'
+   ], src:'NASA/JPL Mars 2020; ESA; DLR; Sun &amp; Stack et al. 2022 (Science Advances)' },
+ { name:'Valles Marineris', lat:-13.9, lon:-59.2, color:'#ff8a6a', tag:'Steepest terrain, possible brines (debated)',
+   blurb:'The largest canyon system in the Solar System - steep walls, landslides, and debated signs of modern brines.',
+   facts:[
+    '<b>Water:</b> recurring slope lineae (dark seasonal flows) on Coprates and Melas walls with <b>hydrated perchlorate salts</b> - possible present-day briny water; formation mechanism still debated.',
+    '<b>Elevation/terrain:</b> system ~4000 km long; floor up to <b>~7 km below the rim</b> (Melas Chasma floor ~5 km below the areoid, plateau up to +4 km).',
+    '<b>Geology:</b> layered canyon-fill deposits, massive landslides, hydrated minerals on plateaus.',
+    '<b>Evidence notes:</b> walls steeper than 25&deg;, landslide debris, and up to ~7 km of local relief make landing and traverse far harder here than at the other three sites; thin atmosphere on the rim plateaus.'
+   ], src:'USGS Astrogeology; McEwen et al. 2015 (JGR); NASA/JPL 2016' }
+];
+
+const listEl = document.getElementById('site-list');
+SITES.forEach((s, i) => {
+  const card = document.createElement('div');
+  card.className = 'site-card'; card.id = 'card-' + i; card.style.setProperty('--c', s.color);
+  card.innerHTML = `<span class="tag">${s.tag}</span><h3>${s.name}</h3><p>${s.blurb}</p>` +
+    `<ul class="facts" style="display:none">${s.facts.map(f=>`<li>${f}</li>`).join('')}</ul>` +
+    `<p class="src" style="display:none">Sources: ${s.src}</p>`;
+  card.onclick = () => flyToSite(i, true);
+  listEl.appendChild(card);
+});
+
+function flyToSite(i, fromCard) {
+  const s = SITES[i];
+  document.querySelectorAll('.site-card').forEach(c => {
+    c.classList.remove('sel');
+    c.querySelectorAll('.facts,.src').forEach(e => e.style.display = 'none');
+  });
+  const card = document.getElementById('card-' + i);
+  card.classList.add('sel');
+  card.querySelectorAll('.facts,.src').forEach(e => e.style.display = 'block');
+  if (fromCard) { card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); map.flyTo([s.lat, s.lon], 6, { duration: 1.4 }); }
+}
+
+SITES.forEach((s, i) => {
+  const ic = L.divIcon({ className: '', html:
+    `<div class="mk" style="--c:${s.color}"><span class="pulse"></span><span class="dot"></span><span class="lbl">${s.name}</span></div>`,
+    iconSize: [0, 0] });
+  L.marker([s.lat, s.lon], { icon: ic, keyboard: false })
+    .addTo(map)
+    .on('click', () => { showTab('sites'); flyToSite(i, true); });
+});
+
+map.fitBounds(L.latLngBounds(SITES.map(s => [s.lat, s.lon])).pad(0.12));
+
+function showTab(name) {
+  ['sites','compare','safety'].forEach(t => {
+    document.getElementById('page-' + t).classList.toggle('on', t === name);
+    document.getElementById('tab-' + t).classList.toggle('on', t === name);
+  });
+}
+
+/* verification hooks: ?tab=safety / ?site=0..3 */
+const qp = new URLSearchParams(location.search);
+if (qp.get('tab')) showTab(qp.get('tab'));
+if (qp.get('site')) { const i = +qp.get('site'); showTab('sites'); flyToSite(i, true); }
+if (qp.get('mola') === '1') { document.getElementById('sw-mola').click(); }
+if (qp.get('geo') === '1') { document.getElementById('sw-geo').click(); }
+
+/* ---- DONKI: recent solar events (solar context, NOT Mars radiation) ---- */
+(async function loadDONKI() {
+  const el = document.getElementById('donki');
+  const end = new Date(), start = new Date(end - 30 * 864e5);
+  const iso = d => d.toISOString().slice(0, 10);
+  try {
+    const [cmes, flrs] = await Promise.all([
+      fetch(`https://api.nasa.gov/DONKI/CME?startDate=${iso(start)}&endDate=${iso(end)}&api_key=DEMO_KEY`).then(r => r.json()),
+      fetch(`https://api.nasa.gov/DONKI/FLR?startDate=${iso(start)}&endDate=${iso(end)}&api_key=DEMO_KEY`).then(r => r.json())
+    ]);
+    if (!Array.isArray(cmes)) throw new Error('rate limit');
+    const items = [];
+    cmes.slice(-2).forEach(c => items.push({ t: c.startTime, h: 'Coronal mass ejection',
+      d: (c.cmeAnalyses && c.cmeAnalyses[0] && c.cmeAnalyses[0].speed ? 'speed ~' + c.cmeAnalyses[0].speed + ' km/s' : 'catalogued') +
+         (c.sourceLocation ? ' from ' + c.sourceLocation : '') }));
+    if (Array.isArray(flrs)) flrs.slice(-2).forEach(f => items.push({ t: f.beginTime, h: 'Solar flare ' + (f.classType || ''),
+      d: (f.sourceLocation ? 'from ' + f.sourceLocation : 'recorded') }));
+    items.sort((a, b) => a.t < b.t ? 1 : -1);
+    el.innerHTML = items.slice(0, 4).map(e =>
+      `<div class="evt"><b>${e.h}</b> &middot; ${e.t.slice(0, 10)}<small>${e.d} (NASA DONKI)</small></div>`).join('') +
+      `<p class="src">Live query to api.nasa.gov/DONKI (demo key - <a href="https://api.nasa.gov" target="_blank">get a free key</a>;
+       full catalog: <a href="https://ccmc.gsfc.nasa.gov/tools/DONKI/" target="_blank">CCMC DONKI</a>).</p>`;
+  } catch (e) {
+    el.innerHTML = `<p style="font-size:13px">Live query unavailable right now (demo-key rate limit). Full catalog:
+      <a href="https://ccmc.gsfc.nasa.gov/tools/DONKI/" target="_blank">NASA CCMC DONKI</a>; free API key: <a href="https://api.nasa.gov" target="_blank">api.nasa.gov</a>.</p>`;
+  }
+})();
+</script>
+</body>
+</html>
