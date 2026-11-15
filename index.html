@@ -10,59 +10,122 @@
 <link rel="stylesheet" href="leaflet.css">
 <style>
   :root {
-    --bg:#0c0a09; --panel:rgba(22,18,14,.92); --card:rgba(255,255,255,.035);
-    --ink:#f5ede1; --mut:#b3a48f; --dim:#7d7160;
-    --acc:#ff7a45; --acc2:#ffb347; --line:rgba(255,180,120,.14);
+    --bg:#090909; --panel:rgba(13,15,21,.80); --card:rgba(255,255,255,.04);
+    --ink:#eef4f8; --mut:#9aa8b4; --dim:#64707c;
+    --acc:#FF7545; --acc2:#55D6F5; --line:rgba(120,170,205,.16);
+    --shadow:0 8px 28px rgba(0,0,0,.55);
+    --radius:18px;
   }
   * { box-sizing:border-box; }
   html,body { height:100%; }
-  body { margin:0; font:15px/1.55 'Inter',system-ui,sans-serif; background:var(--bg); color:var(--ink); }
+  body { margin:0; font:15px/1.55 'Inter',system-ui,sans-serif; background:var(--bg); color:var(--ink); overflow:hidden; }
 
-  /* ---------- header ---------- */
-  header {
-    position:relative; padding:14px 20px; overflow:hidden;
+  /* ---------- view toggle (3D globe hero / 2D science map) ---------- */
+  .viewtoggle { display:flex; gap:6px; margin-top:9px; }
+  .viewtoggle button { flex:1; padding:6px 10px; border-radius:99px; border:1px solid var(--line); background:var(--card);
+                       color:var(--mut); font:600 11.5px 'Space Grotesk'; letter-spacing:.4px; cursor:pointer; transition:.15s; }
+  .viewtoggle button:hover { color:var(--ink); border-color:var(--acc2); }
+  .viewtoggle button.on { color:#0b0d10; background:linear-gradient(120deg,var(--acc2),#8fe6fb); border-color:transparent; }
+
+  /* ---------- 3D globe hero ---------- */
+  #globe-wrap { position:fixed; inset:0; z-index:2; }
+  #globe-wrap canvas { display:block; }
+  body.view-2d #globe-wrap { display:none; }
+  body:not(.view-2d) #layers-wrap { display:none; }
+  body:not(.view-2d) #map { visibility:hidden; } /* deep-space starfield shows around the globe */
+  #globe-attr { position:fixed; right:10px; bottom:8px; z-index:3; color:var(--dim); font-size:10.5px;
+                background:rgba(9,9,9,.55); padding:2px 8px; border-radius:8px; }
+  body.view-2d #globe-attr { display:none; }
+
+  /* ---------- the map IS the page (Google Maps style: full-screen hero) ---------- */
+  body::before { /* deep-space starfield behind the map canvas */
+    content:""; position:fixed; inset:0; z-index:0; pointer-events:none;
     background:
-      radial-gradient(900px 300px at 85% -60%, rgba(255,122,69,.28), transparent 60%),
-      radial-gradient(600px 260px at 15% -80%, rgba(120,90,255,.18), transparent 60%),
-      linear-gradient(180deg,#171009,#0e0b08);
-    border-bottom:1px solid var(--line);
+      radial-gradient(1px 1px at 12% 30%, rgba(255,255,255,.8), transparent),
+      radial-gradient(1px 1px at 33% 70%, rgba(255,217,176,.8), transparent),
+      radial-gradient(1.5px 1.5px at 52% 20%, rgba(255,255,255,.9), transparent),
+      radial-gradient(1px 1px at 68% 55%, rgba(255,255,238,.7), transparent),
+      radial-gradient(1px 1px at 81% 25%, rgba(255,255,255,.8), transparent),
+      radial-gradient(1.5px 1.5px at 91% 66%, rgba(255,217,176,.8), transparent),
+      radial-gradient(1px 1px at 44% 85%, rgba(255,255,255,.7), transparent),
+      radial-gradient(1px 1px at 24% 52%, rgba(255,255,238,.7), transparent),
+      radial-gradient(1px 1px at 7% 82%, rgba(255,255,255,.6), transparent),
+      radial-gradient(1.5px 1.5px at 76% 88%, rgba(255,255,255,.7), transparent),
+      radial-gradient(1px 1px at 60% 8%, rgba(255,217,176,.7), transparent),
+      radial-gradient(1200px 700px at 50% 45%, rgba(255,122,69,.07), transparent 70%),
+      linear-gradient(180deg,#0a0807,#0c0a09);
   }
-  header::after { /* starfield */
-    content:""; position:absolute; inset:0; pointer-events:none; opacity:.55;
-    background-image:
-      radial-gradient(1px 1px at 12% 30%, #fff, transparent),
-      radial-gradient(1px 1px at 33% 70%, #ffd9b0, transparent),
-      radial-gradient(1.5px 1.5px at 52% 20%, #fff, transparent),
-      radial-gradient(1px 1px at 68% 55%, #ffe, transparent),
-      radial-gradient(1px 1px at 81% 25%, #fff, transparent),
-      radial-gradient(1.5px 1.5px at 91% 66%, #ffd9b0, transparent),
-      radial-gradient(1px 1px at 44% 85%, #fff, transparent),
-      radial-gradient(1px 1px at 24% 52%, #ffe, transparent);
-  }
-  .hrow { position:relative; display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; z-index:1; }
-  header h1 { margin:0; font-family:'Space Grotesk',sans-serif; font-size:clamp(19px,2.6vw,26px); font-weight:700; letter-spacing:.2px; }
-  header h1 .mars { color:var(--acc); }
-  .chip { position:relative; z-index:1; font:600 11px 'Space Grotesk'; letter-spacing:1.2px; text-transform:uppercase;
-          color:var(--acc2); border:1px solid rgba(255,179,71,.4); padding:4px 10px; border-radius:99px;
-          background:rgba(255,179,71,.08); white-space:nowrap; }
-  header p { position:relative; z-index:1; margin:4px 0 0; color:var(--mut); font-size:13px; }
+  #map { position:fixed; inset:0; z-index:1; background:transparent; }
 
-  /* ---------- layout ---------- */
-  main { display:flex; flex-wrap:wrap; }
-  #mapwrap { flex:1 1 620px; min-width:320px; position:relative; }
-  #map { height:calc(100vh - 118px); min-height:430px; background:#160f0a; }
-  aside { flex:0 1 430px; max-width:480px; min-width:300px; border-left:1px solid var(--line);
-          height:calc(100vh - 118px); overflow-y:auto; background:var(--panel); backdrop-filter:blur(6px); }
+  /* ---------- floating cards over the map ---------- */
+  .floatcard { position:fixed; z-index:800; background:var(--panel); border:1px solid var(--line);
+               border-radius:var(--radius); box-shadow:var(--shadow); backdrop-filter:blur(10px); }
+
+  /* ---------- title card (top-left, like a search bar) ---------- */
+  #topcard { top:14px; left:14px; max-width:430px; padding:12px 16px 11px; }
+  #topcard .trow { display:flex; align-items:center; gap:10px; }
+  #topcard h1 { margin:0; font-family:'Space Grotesk',sans-serif; font-size:clamp(17px,2vw,21px); font-weight:700; letter-spacing:.2px; flex:1; }
+  #topcard h1 .mars { color:var(--acc); }
+  .chips { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .chip { font:600 10.5px 'Space Grotesk'; letter-spacing:1.1px; text-transform:uppercase;
+          color:var(--acc2); border:1px solid rgba(85,214,245,.4); padding:3px 9px; border-radius:99px;
+          background:rgba(85,214,245,.07); white-space:nowrap; }
+  #topcard .sub { margin:8px 0 0; color:var(--mut); font-size:11.5px; line-height:1.45; }
+
+  /* info button in the title card */
+  .info-fab { flex:none; width:30px; height:30px; border-radius:50%; border:1px solid var(--line);
+              background:var(--card); color:var(--acc2); font:700 15px 'Space Grotesk'; cursor:pointer; transition:.15s; }
+  .info-fab:hover { background:rgba(255,179,71,.15); }
+
+  /* ---------- layers control (top-right, behind a Layers button like Google Maps) ---------- */
+  #layers-wrap { top:14px; right:14px; background:none; border:none; box-shadow:none; backdrop-filter:none; }
+  #layers-fab { display:flex; align-items:center; gap:7px; margin-left:auto; padding:9px 15px; border-radius:99px;
+                border:1px solid var(--line); background:var(--panel); color:var(--ink); box-shadow:var(--shadow);
+                font:600 12.5px 'Space Grotesk'; letter-spacing:.6px; cursor:pointer; backdrop-filter:blur(10px); transition:.15s; }
+  #layers-fab:hover { border-color:var(--acc); }
+  #layers-fab .stack { width:14px; height:14px; position:relative; flex:none; }
+  #layers-fab .stack i { position:absolute; left:0; right:0; height:2px; border-radius:2px; background:var(--acc2); }
+  #layers-fab .stack i:nth-child(1){ top:2px; } #layers-fab .stack i:nth-child(2){ top:6px; } #layers-fab .stack i:nth-child(3){ top:10px; }
+  .layer-ctl { display:none; margin-top:8px; background:var(--panel); border:1px solid var(--line); border-radius:14px;
+               padding:11px 13px; min-width:200px; backdrop-filter:blur(10px); box-shadow:var(--shadow); }
+  .layer-ctl.open { display:block; }
+  .layer-ctl .lt { font:600 10.5px 'Space Grotesk'; letter-spacing:1.2px; text-transform:uppercase; color:var(--dim); margin-bottom:8px; }
+  .swrow { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:7px 0; }
+  .swrow label { font:500 13px 'Inter'; color:var(--ink); cursor:pointer; }
+  .switch { position:relative; width:38px; height:21px; flex:none; cursor:pointer; }
+  .switch input { opacity:0; width:0; height:0; }
+  .track { position:absolute; inset:0; background:#3a3026; border-radius:99px; transition:.2s; border:1px solid var(--line); }
+  .track::before { content:""; position:absolute; left:2px; top:2px; width:15px; height:15px; border-radius:50%;
+                   background:#8d7f6d; transition:.2s; }
+  .switch input:checked + .track { background:linear-gradient(120deg,var(--acc),var(--acc2)); }
+  .switch input:checked + .track::before { transform:translateX(17px); background:#1a120c; }
+  .oprow { display:flex; align-items:center; gap:8px; margin:2px 0 6px; }
+  .oprow input[type=range] { flex:1; accent-color:var(--acc); height:2px; }
+  .oprow span { font-size:11px; color:var(--dim); width:34px; text-align:right; }
+
+  /* ---------- side panel (left, like Google Maps' place panel) ---------- */
+  #panel { top:196px; left:14px; bottom:14px; width:392px; max-width:calc(100vw - 28px);
+           display:flex; flex-direction:column; overflow:hidden; transition:transform .28s ease; }
+  body.panel-closed #panel { transform:translateX(calc(-100% - 20px)); }
+  #expand-fab { position:fixed; z-index:799; top:196px; left:14px; display:none; align-items:center; gap:8px;
+                padding:10px 16px; border-radius:99px; border:1px solid var(--line); background:var(--panel);
+                color:var(--ink); box-shadow:var(--shadow); font:600 12.5px 'Space Grotesk'; letter-spacing:.5px;
+                cursor:pointer; backdrop-filter:blur(10px); }
+  body.panel-closed #expand-fab { display:flex; }
+  #collapse-btn { position:absolute; top:12px; right:10px; z-index:7; width:28px; height:28px; border-radius:50%;
+                  border:1px solid var(--line); background:var(--card); color:var(--mut); font-size:15px; line-height:1;
+                  cursor:pointer; transition:.15s; }
+  #collapse-btn:hover { color:var(--ink); border-color:var(--acc); }
 
   /* ---------- tabs ---------- */
-  .tabs { display:flex; gap:8px; position:sticky; top:0; z-index:6; padding:10px 12px;
-          background:rgba(14,11,9,.96); border-bottom:1px solid var(--line); }
+  .tabs { display:flex; gap:8px; flex:none; padding:12px 12px 10px; border-bottom:1px solid var(--line); padding-right:46px; }
   .tabs button { flex:1; padding:8px 4px; border-radius:99px; border:1px solid transparent; background:none;
                  color:var(--mut); font:600 13px 'Space Grotesk'; letter-spacing:.4px; cursor:pointer; transition:.15s; }
   .tabs button:hover { color:var(--ink); }
   .tabs button.on { color:#1a120c; background:linear-gradient(120deg,var(--acc),var(--acc2)); }
 
-  .tabpage { display:none; padding:14px 16px 30px; }
+  .panel-body { overflow-y:auto; flex:1; scrollbar-width:thin; scrollbar-color:#4a3f32 transparent; }
+  .tabpage { display:none; padding:14px 16px 26px; }
   .tabpage.on { display:block; }
   .hint { color:var(--mut); font-size:13px; margin:2px 0 10px; }
 
@@ -84,7 +147,7 @@
   /* ---------- compare ---------- */
   table.cmp { width:100%; border-collapse:separate; border-spacing:0; font-size:12.5px; border:1px solid var(--line); border-radius:12px; overflow:hidden; }
   table.cmp th, table.cmp td { padding:8px 9px; text-align:left; vertical-align:top; border-bottom:1px solid var(--line); }
-  table.cmp thead th { background:rgba(255,122,69,.12); font:600 11px 'Space Grotesk'; letter-spacing:.6px; text-transform:uppercase; color:var(--acc2); }
+  table.cmp thead th { background:rgba(255,117,69,.12); font:600 11px 'Space Grotesk'; letter-spacing:.6px; text-transform:uppercase; color:var(--acc); }
   table.cmp tbody th { font:600 12px 'Space Grotesk'; color:var(--ink); }
   table.cmp tbody tr:nth-child(even) { background:rgba(255,255,255,.025); }
   table.cmp tbody tr:last-child th, table.cmp tbody tr:last-child td { border-bottom:none; }
@@ -98,29 +161,59 @@
 
   h4.sec { font:600 13px 'Space Grotesk'; letter-spacing:1px; text-transform:uppercase; color:var(--acc2); margin:18px 0 8px; }
   h3.pt { font:600 18px 'Space Grotesk'; margin:4px 0 2px; }
-  a { color:#ffb183; }
+  a { color:#ff9a6a; }
+
+  /* ---------- crew safety index: picker, ranking, gauges ---------- */
+  .picker { display:flex; gap:6px; flex-wrap:wrap; margin:10px 0 4px; }
+  .picker button { padding:6px 11px; border-radius:99px; border:1px solid var(--line); background:var(--card);
+                   color:var(--mut); font:600 11.5px 'Space Grotesk'; letter-spacing:.3px; cursor:pointer; transition:.15s; }
+  .picker button:hover { color:var(--ink); border-color:var(--acc2); }
+  .picker button.on { color:#0b0d10; background:linear-gradient(120deg,var(--acc),#ff9a70); border-color:transparent; }
+  .basis { color:var(--dim); font-size:11.5px; line-height:1.5; margin:6px 0 10px; }
+  .rank-row { position:relative; display:flex; align-items:center; gap:11px; padding:10px 12px; margin:8px 0;
+              border:1px solid var(--line); border-left:4px solid var(--c, var(--acc)); border-radius:13px; background:var(--card); }
+  .rank-num { font:700 15px 'Space Grotesk'; color:var(--dim); width:18px; text-align:center; flex:none; }
+  .rank-main { flex:1; min-width:0; }
+  .rank-name { font:600 14px 'Space Grotesk'; color:var(--ink); }
+  .rank-bar { height:6px; border-radius:4px; background:rgba(255,255,255,.07); margin:6px 0 4px; overflow:hidden; }
+  .rank-bar i { display:block; height:100%; border-radius:4px; background:linear-gradient(90deg,var(--acc2),var(--acc)); transition:width .4s ease; }
+  .rank-sub { font-size:10.5px; color:var(--dim); letter-spacing:.4px; }
+  .rank-val { font:700 19px 'Space Grotesk'; color:var(--acc2); width:36px; text-align:right; flex:none; }
+  .badge { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:99px; vertical-align:2px;
+           background:linear-gradient(120deg,var(--acc),#ff9a70); color:#0b0d10;
+           font:700 9px 'Space Grotesk'; letter-spacing:.8px; text-transform:uppercase; }
+  .score-chip { position:absolute; top:10px; right:10px; width:46px; height:46px; border-radius:50%;
+                background:conic-gradient(var(--acc2) calc(var(--p,0)*1%), rgba(255,255,255,.08) 0);
+                display:grid; place-items:center; flex:none; }
+  .score-chip span { width:36px; height:36px; border-radius:50%; background:#0d0f15; display:grid; place-items:center;
+                     font:700 13.5px 'Space Grotesk'; color:var(--acc2); }
+  .site-card { position:relative; }
+  .site-card .tag, .site-card h3, .site-card > p { margin-right:52px; }
+  .card-basis { font-size:10.5px; color:var(--dim); margin-top:6px; letter-spacing:.3px; }
+
+  /* ---------- telemetry feel for the safety tab ---------- */
+  #page-safety h4.sec { color:var(--acc2); border-left:3px solid var(--acc2); padding-left:9px; }
+  #page-safety .facts { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 14px 10px 32px; }
 
   .evt { border:1px solid var(--line); border-left:3px solid var(--acc); border-radius:8px;
          padding:7px 11px; margin:9px 0; font-size:13px; background:var(--card); }
   .evt small { color:var(--mut); display:block; margin-top:2px; }
 
-  /* ---------- custom map controls ---------- */
-  .layer-ctl { position:absolute; top:12px; right:12px; z-index:800; background:var(--panel);
-               border:1px solid var(--line); border-radius:14px; padding:10px 12px; min-width:190px;
-               backdrop-filter:blur(8px); box-shadow:0 8px 24px rgba(0,0,0,.45); }
-  .layer-ctl .lt { font:600 10.5px 'Space Grotesk'; letter-spacing:1.2px; text-transform:uppercase; color:var(--dim); margin-bottom:8px; }
-  .swrow { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:7px 0; }
-  .swrow label { font:500 13px 'Inter'; color:var(--ink); cursor:pointer; }
-  .switch { position:relative; width:38px; height:21px; flex:none; cursor:pointer; }
-  .switch input { opacity:0; width:0; height:0; }
-  .track { position:absolute; inset:0; background:#3a3026; border-radius:99px; transition:.2s; border:1px solid var(--line); }
-  .track::before { content:""; position:absolute; left:2px; top:2px; width:15px; height:15px; border-radius:50%;
-                   background:#8d7f6d; transition:.2s; }
-  .switch input:checked + .track { background:linear-gradient(120deg,var(--acc),var(--acc2)); }
-  .switch input:checked + .track::before { transform:translateX(17px); background:#1a120c; }
-  .oprow { display:flex; align-items:center; gap:8px; margin:2px 0 6px; }
-  .oprow input[type=range] { flex:1; accent-color:var(--acc); height:2px; }
-  .oprow span { font-size:11px; color:var(--dim); width:34px; text-align:right; }
+  /* ---------- about dialog (data sources + AI-use disclosure) ---------- */
+  #scrim { position:fixed; inset:0; z-index:900; background:rgba(5,3,2,.55); backdrop-filter:blur(2px);
+           opacity:0; pointer-events:none; transition:.2s; }
+  #scrim.open { opacity:1; pointer-events:auto; }
+  #about { position:fixed; z-index:901; left:50%; top:50%; transform:translate(-50%,-46%); width:min(620px, calc(100vw - 32px));
+           max-height:80dvh; overflow-y:auto; background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+           box-shadow:var(--shadow); backdrop-filter:blur(12px); padding:18px 22px 16px;
+           opacity:0; pointer-events:none; transition:.2s; }
+  #about.open { opacity:1; pointer-events:auto; transform:translate(-50%,-50%); }
+  #about h3 { margin:0 34px 8px 0; font:600 17px 'Space Grotesk'; }
+  #about .x { position:absolute; top:12px; right:12px; width:28px; height:28px; border-radius:50%; border:1px solid var(--line);
+              background:var(--card); color:var(--mut); font-size:14px; cursor:pointer; }
+  #about .x:hover { color:var(--ink); border-color:var(--acc); }
+  #about footer { padding:0; color:var(--dim); font-size:12.5px; line-height:1.6; border:none; background:none; }
+  #about footer b { color:var(--mut); }
 
   /* ---------- map markers ---------- */
   .mk { position:relative; }
@@ -133,56 +226,94 @@
              color:#fff; text-shadow:0 1px 4px #000, 0 0 8px rgba(0,0,0,.9); letter-spacing:.3px; }
 
   /* ---------- leaflet chrome restyle ---------- */
+  .leaflet-tile-pane { filter:saturate(1.15) contrast(1.06); }
   .leaflet-bar a { background:#16120e; color:#f2e9dc; border-color:#3a332a; }
   .leaflet-bar a:hover { background:#2b241c; }
   .leaflet-control-attribution { background:rgba(12,10,9,.75) !important; color:#7d7160 !important; font-size:10.5px !important; }
   .leaflet-control-attribution a { color:#7d7160 !important; }
 
-  footer { padding:12px 20px; color:var(--dim); font-size:12px; border-top:1px solid var(--line); background:#0a0806; }
-
+  /* ---------- phones: panel becomes a bottom sheet ---------- */
   @media (max-width:760px) {
-    #map { height:56vh; min-height:340px; }
-    aside { max-width:none; flex:1 1 100%; height:auto; border-left:none; border-top:1px solid var(--line); }
-    .layer-ctl { top:auto; bottom:14px; right:12px; }
+    #topcard { top:8px; left:8px; right:64px; max-width:none; padding:10px 13px 9px; }
+    #topcard .sub { display:none; }
+    .chips { margin-top:6px; }
+    #layers-wrap { top:8px; right:8px; }
+    #layers-fab { padding:8px 11px; }
+    #layers-fab .lab { display:none; }
+    #panel { top:auto; left:8px; right:8px; bottom:8px; width:auto; max-height:47dvh; }
+    body.panel-closed #panel { transform:translateY(calc(100% + 16px)); }
+    #expand-fab { top:auto; bottom:14px; left:8px; }
+    .leaflet-control-zoom { display:none; }
     .mk .lbl { font-size:11px; }
   }
 </style>
 </head>
 <body>
-<header>
-  <div class="hrow">
+<div id="map"></div>
+<div id="globe-wrap"></div>
+<div id="globe-attr">3D Mars texture: Solar System Scope (CC BY 4.0)</div>
+
+<!-- title card -->
+<div class="floatcard" id="topcard">
+  <div class="trow">
     <h1><span class="mars">&#9794;</span> Mars Survival Map</h1>
+    <button class="info-fab" onclick="openAbout()" title="About: data sources and AI-use disclosure" aria-label="About this map">i</button>
+  </div>
+  <div class="chips">
     <span class="chip">4 candidate sites</span>
-    <span class="chip">3 live NASA / USGS layers</span>
+    <span class="chip">3 real NASA / USGS data layers</span>
   </div>
-  <p>Comparing Jezero &middot; Gale &middot; Valles Marineris &middot; Arcadia Planitia for a future crewed mission &mdash;
+  <div class="viewtoggle" id="view-toggle">
+    <button id="view-globe-btn" class="on" onclick="setView('globe')">3D Globe</button>
+    <button id="view-2d-btn" onclick="setView('2d')">2D map + layers</button>
+  </div>
+  <p class="sub">Comparing Jezero &middot; Gale &middot; Valles Marineris &middot; Arcadia Planitia for a future crewed mission &mdash;
      Team NASA Heist (Sourav Garai) &middot; NASA Space Apps 2026 &middot; &ldquo;Interplanetary Survival Guide: Martian Map&rdquo;</p>
-</header>
-<main>
-  <div id="mapwrap">
-    <div id="map"></div>
-    <div class="layer-ctl">
-      <div class="lt">Map layers</div>
-      <div class="swrow"><label for="sw-mola">Topography (MOLA)</label>
-        <span class="switch"><input type="checkbox" id="sw-mola"><span class="track"></span></span></div>
-      <div class="oprow"><input type="range" id="op-mola" min="20" max="100" value="55"><span id="op-mola-v">55%</span></div>
-      <div class="swrow"><label for="sw-geo">Geology (USGS)</label>
-        <span class="switch"><input type="checkbox" id="sw-geo"><span class="track"></span></span></div>
-      <div class="oprow"><input type="range" id="op-geo" min="20" max="100" value="60"><span id="op-geo-v">60%</span></div>
-    </div>
+</div>
+
+<!-- layers control -->
+<div class="floatcard" id="layers-wrap">
+  <button id="layers-fab" onclick="toggleLayers()" aria-label="Toggle map layers">
+    <span class="stack"><i></i><i></i><i></i></span><span class="lab">Layers</span>
+  </button>
+  <div class="layer-ctl" id="layer-ctl">
+    <div class="lt">Map layers</div>
+    <div class="swrow"><label for="sw-mola">Topography (MOLA)</label>
+      <span class="switch"><input type="checkbox" id="sw-mola"><span class="track"></span></span></div>
+    <div class="oprow"><input type="range" id="op-mola" min="20" max="100" value="55"><span id="op-mola-v">55%</span></div>
+    <div class="swrow"><label for="sw-geo">Geology (USGS)</label>
+      <span class="switch"><input type="checkbox" id="sw-geo"><span class="track"></span></span></div>
+    <div class="oprow"><input type="range" id="op-geo" min="20" max="100" value="60"><span id="op-geo-v">60%</span></div>
   </div>
-  <aside>
-    <div class="tabs">
-      <button id="tab-sites" class="on" onclick="showTab('sites')">Sites</button>
-      <button id="tab-compare" onclick="showTab('compare')">Compare</button>
-      <button id="tab-safety" onclick="showTab('safety')">Crew Safety</button>
-    </div>
+</div>
+
+<!-- expand handle when the panel is hidden -->
+<button id="expand-fab" onclick="togglePanel()">&#9776; Sites &amp; evidence</button>
+
+<!-- side / bottom panel -->
+<div class="floatcard" id="panel">
+  <button id="collapse-btn" onclick="togglePanel()" title="Hide panel" aria-label="Hide panel">&lsaquo;</button>
+  <div class="tabs">
+    <button id="tab-sites" class="on" onclick="showTab('sites')">Sites</button>
+    <button id="tab-compare" onclick="showTab('compare')">Compare</button>
+    <button id="tab-safety" onclick="showTab('safety')">Crew Safety</button>
+  </div>
+  <div class="panel-body">
     <div id="page-sites" class="tabpage on">
-      <p class="hint">Tap a site to fly to it. Toggle topography and geology on the map control.</p>
+      <p class="hint">Tap a site to fly to it. Layers and blending live behind the Layers button.</p>
       <div id="site-list"></div>
     </div>
     <div id="page-compare" class="tabpage">
-      <h3 class="pt">Side-by-side evidence</h3>
+      <h3 class="pt">Crew Safety Index</h3>
+      <p class="basis">Indicative scores averaged from the published evidence shown below - water access, radiation shielding (from elevation, anchored to the measured Gale RAD dose), terrain &amp; landing safety, and dust risk (equal for all four: global storms threaten every site). The map presents evidence; the decision belongs to the crew.</p>
+      <div class="picker" id="picker">
+        <button data-p="balanced" class="on" onclick="setPriority('balanced')">Balanced</button>
+        <button data-p="water" onclick="setPriority('water')">Prefer water</button>
+        <button data-p="landing" onclick="setPriority('landing')">Prefer easy landing</button>
+        <button data-p="radiation" onclick="setPriority('radiation')">Prefer low radiation</button>
+      </div>
+      <div id="rank-list"></div>
+      <h3 class="pt" style="margin-top:18px">Side-by-side evidence</h3>
       <table class="cmp">
         <thead><tr><th></th><th>Water / ice evidence</th><th>Elevation</th><th>Terrain evidence</th><th>Open questions</th></tr></thead>
         <tbody>
@@ -199,7 +330,7 @@
       <h3 class="pt">Crew safety</h3>
       <h4 class="sec">Recent solar activity (context)</h4>
       <div id="donki">Loading latest events from NASA DONKI...</div>
-      <div class="warn"><b>Honest scope:</b> these are <b>solar</b> events (CMEs, flares) recorded by Sun-Earth-line spacecraft (SOHO, STEREO, GOES) via NASA's DONKI catalog. They are <b>not</b> measurements of radiation at Mars. No public feed measures live radiation on the Martian surface today; solar particle events take hours to days to reach Mars, and Mars is usually far from the Sun-Earth line. Treat this panel as "what is the Sun doing", not "is it safe to go outside".</div>
+      <div class="warn"><b>Honest scope:</b> these are <b>solar</b> events (CMEs, flares) recorded by Sun-Earth-line spacecraft (SOHO, STEREO, GOES) via NASA's DONKI catalog. They are <b>not</b> measurements of radiation at Mars. This project uses published RAD measurements; DONKI is solar context, not a current local Mars dose. Solar particle events take hours to days to reach Mars, and Mars is usually far from the Sun-Earth line. Treat this panel as "what is the Sun doing", not "is it safe to go outside".</div>
       <h4 class="sec">What we actually measured on Mars</h4>
       <ul class="facts">
         <li><b>MSL Curiosity's RAD instrument (Gale Crater, 2012-2013):</b> average dose equivalent on the surface <b>0.64 &plusmn; 0.12 mSv/day</b> (absorbed dose 0.21 &plusmn; 0.04 mGy/day) - roughly half the dose measured during the cruise to Mars, thanks to shielding by the atmosphere and the planet itself.</li>
@@ -214,12 +345,22 @@
       </ul>
       <p class="src">Sources: Hassler et al. 2014, Science 343 (MSL RAD); Zeitlin et al. 2013; NASA DONKI (CCMC); NASA/JPL dust-storm coverage.</p>
     </div>
-  </aside>
-</main>
-<footer>
-  Data: NASA Mars Trek WMTS (Viking MDIM21 optical mosaic; MGS MOLA topography) &middot; USGS global geologic map of Mars (Tanaka et al. 2014, SIM 3292) &middot; NASA DONKI space weather &middot; MSL RAD (Gale) measurements.
-  Map: Leaflet (open source). Team NASA Heist - Sourav Garai. Built with AI assistance (disclosed in the project submission). All site facts are from the published NASA/USGS sources listed above.
-</footer>
+  </div>
+</div>
+
+<!-- about dialog: data sources + AI-use disclosure -->
+<div id="scrim" onclick="closeAbout()"></div>
+<div id="about" role="dialog" aria-label="About this map">
+  <button class="x" onclick="closeAbout()" aria-label="Close">&times;</button>
+  <h3>About this map</h3>
+  <footer>
+    <b>Data:</b> NASA Mars Trek WMTS (Viking MDIM21 optical mosaic; MGS MOLA topography) &middot; USGS global geologic map of Mars (Tanaka et al. 2014, SIM 3292) &middot; NASA DONKI space weather &middot; MSL RAD (Gale) measurements.
+    The map layers are stable published datasets fetched live from official NASA/USGS endpoints. Map: Leaflet (open source). Team NASA Heist - Sourav Garai. All site facts are from the published NASA/USGS sources listed above.<br><br>
+    <b>AI (SI) use:</b> an AI assistant proposed four candidate Mars landing sites; the human contributor chose to combine all four into one concept (&ldquo;a Mars map where astronauts can compare four places and pick the safest one with water&rdquo;) and directed the build. The AI implemented everything else (code, design, slides, text). No data values were generated by AI.
+  </footer>
+</div>
+
+<script src="three.min.js"></script>
 <script src="leaflet.js"></script>
 <script>
 /* ---- verified layer setup (tested Nov 14, 2026) ---- */
@@ -253,7 +394,8 @@ const USGSGeologyLayer = L.GridLayer.extend({
   }
 });
 
-const map = L.map('map', { crs: L.CRS.EPSG4326, minZoom: 1, maxZoom: 7, zoomControl: true });
+const map = L.map('map', { crs: L.CRS.EPSG4326, minZoom: 1, maxZoom: 7, zoomControl: false });
+L.control.zoom({ position: 'bottomright' }).addTo(map);
 const mdim = L.tileLayer(MDIM21, { maxZoom: 7, tileSize: 256,
   attribution: 'NASA Mars Trek (MDIM21, MOLA) | USGS SIM 3292' }).addTo(map);
 const mola = L.tileLayer(MOLA, { maxZoom: 7, tileSize: 256, opacity: 0.55 });
@@ -269,6 +411,18 @@ function bindLayer(swId, opId, layer) {
 bindLayer('sw-mola', 'op-mola', mola);
 bindLayer('sw-geo', 'op-geo', geo);
 
+/* layers card: open by default on desktop, tucked behind the button on phones */
+if (window.innerWidth > 760) document.getElementById('layer-ctl').classList.add('open');
+function toggleLayers() { document.getElementById('layer-ctl').classList.toggle('open'); }
+
+/* panel show/hide (Google Maps style collapsible side panel) */
+function togglePanel() { document.body.classList.toggle('panel-closed'); }
+
+/* about dialog */
+function openAbout() { document.getElementById('scrim').classList.add('open'); document.getElementById('about').classList.add('open'); }
+function closeAbout() { document.getElementById('scrim').classList.remove('open'); document.getElementById('about').classList.remove('open'); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAbout(); });
+
 /* ---- the four candidate sites ---- */
 const SITES = [
  { name:'Arcadia Planitia', lat:40.0, lon:-177.0, color:'#57c7ff', tag:'Shallow-ice evidence, smooth plains',
@@ -278,15 +432,17 @@ const SITES = [
     '<b>Elevation:</b> about <b>-3 to -4 km</b>; very flat with few rocks; studied ellipses meet published landing-safety criteria (slopes &lt;5&deg;). Evaluated as a Starship candidate region (sites AP-1, AP-8, AP-9).',
     '<b>Geology:</b> Amazonian lava plains with ice-related periglacial polygons.',
     '<b>Uncertainty:</b> ice depth and purity vary across the region; no lander has sampled it. Mid-latitude = colder nights, seasonal CO2 frost.'
-   ], src:'NASA SWIM 2019; Planetary Science Institute; Golombek et al., LPSC 2021' },
- { name:'Gale Crater', lat:-4.59, lon:137.44, color:'#ffd25e', tag:'Only site with surface radiation data',
-   blurb:'Curiosity rover&#39;s home since 2012: ancient lake, organics, and the only surface radiation dataset.',
+   ], src:'NASA SWIM 2019; Planetary Science Institute; Golombek et al., LPSC 2021',
+   sc:{ w:90, r:75, t:90, d:50 } },
+ { name:'Gale Crater', lat:-4.59, lon:137.44, color:'#ffd25e', tag:'Surface radiation measured here (MSL RAD)',
+   blurb:'Curiosity rover&#39;s home since 2012: ancient lake, organics, and a measured surface radiation dataset.',
    facts:[
     '<b>Water (past):</b> a long-lived freshwater lake and streams (Yellowknife Bay); clay minerals and organics found by Curiosity (landed Aug 6, 2012).',
     '<b>Elevation:</b> about <b>-4.4 km</b> (MOLA) - a deep atmosphere column above the floor, which helps landing braking and radiation shielding.',
-    '<b>Radiation:</b> the only site with direct measurements: MSL RAD recorded <b>0.64 &plusmn; 0.12 mSv/day</b> on the surface (2012-13).',
+    '<b>Radiation:</b> Curiosity&#39;s RAD instrument measured surface radiation at Gale (Hassler et al. 2014): <b>0.64 &plusmn; 0.12 mSv/day</b> on the surface (2012-13).',
     '<b>Evidence notes:</b> a 1-ton rover landed here successfully in 2012; flat sandy floor in the ellipse; basaltic dust and dust devils; Mount Sharp&#39;s slopes are a traverse hazard if crews climb.'
-   ], src:'Hassler et al. 2014 (Science); NASA MSL mission' },
+   ], src:'Hassler et al. 2014 (Science); NASA MSL mission',
+   sc:{ w:35, r:85, t:80, d:50 } },
  { name:'Jezero Crater', lat:18.41, lon:77.69, color:'#8ee08a', tag:'Ancient lake delta, rover in place',
    blurb:'Perseverance&#39;s landing site: an ancient lake delta with high biosignature-preservation potential.',
    facts:[
@@ -294,7 +450,8 @@ const SITES = [
     '<b>Elevation:</b> floor about <b>-2.6 km</b> - low, so good atmospheric braking for landing.',
     '<b>Geology:</b> Noachian crater on the Isidis basin rim; delta sediments plus volcanic floor units; Perseverance landed here Feb 18, 2021 and is caching samples.',
     '<b>Evidence notes:</b> a 1-ton rover landed here successfully in 2021; some rocky and cratered units; dust devils frequent; at -2.6 km the atmosphere above gives somewhat less radiation shielding than deeper sites.'
-   ], src:'NASA/JPL Mars 2020; ESA; DLR; Sun &amp; Stack et al. 2022 (Science Advances)' },
+   ], src:'NASA/JPL Mars 2020; ESA; DLR; Sun &amp; Stack et al. 2022 (Science Advances)',
+   sc:{ w:35, r:65, t:75, d:50 } },
  { name:'Valles Marineris', lat:-13.9, lon:-59.2, color:'#ff8a6a', tag:'Steepest terrain, possible brines (debated)',
    blurb:'The largest canyon system in the Solar System - steep walls, landslides, and debated signs of modern brines.',
    facts:[
@@ -302,19 +459,59 @@ const SITES = [
     '<b>Elevation/terrain:</b> system ~4000 km long; floor up to <b>~7 km below the rim</b> (Melas Chasma floor ~5 km below the areoid, plateau up to +4 km).',
     '<b>Geology:</b> layered canyon-fill deposits, massive landslides, hydrated minerals on plateaus.',
     '<b>Evidence notes:</b> walls steeper than 25&deg;, landslide debris, and up to ~7 km of local relief make landing and traverse far harder here than at the other three sites; thin atmosphere on the rim plateaus.'
-   ], src:'USGS Astrogeology; McEwen et al. 2015 (JGR); NASA/JPL 2016' }
+   ], src:'USGS Astrogeology; McEwen et al. 2015 (JGR); NASA/JPL 2016',
+   sc:{ w:45, r:85, t:25, d:50 } }
 ];
+
+/* ---- Crew Safety Index: honest sub-scores, weighted by mission priority ---- */
+const PRIORITIES = {
+  balanced:  { w:1, r:1, t:1, d:1 },
+  water:     { w:2, r:1, t:1, d:1 },
+  landing:   { w:1, r:1, t:2, d:1 },
+  radiation: { w:1, r:2, t:1, d:1 }
+};
+let curPriority = 'balanced';
+function siteIndex(s, p) {
+  const w = PRIORITIES[p];
+  return Math.round((s.sc.w*w.w + s.sc.r*w.r + s.sc.t*w.t + s.sc.d*w.d) / (w.w + w.r + w.t + w.d));
+}
 
 const listEl = document.getElementById('site-list');
 SITES.forEach((s, i) => {
   const card = document.createElement('div');
   card.className = 'site-card'; card.id = 'card-' + i; card.style.setProperty('--c', s.color);
-  card.innerHTML = `<span class="tag">${s.tag}</span><h3>${s.name}</h3><p>${s.blurb}</p>` +
+  card.innerHTML = `<div class="score-chip" id="score-${i}" title="Crew Safety Index (indicative)"><span>--</span></div>` +
+    `<span class="tag">${s.tag}</span><h3>${s.name}</h3><p>${s.blurb}</p>` +
+    `<p class="card-basis">Index basis - water ${s.sc.w} &middot; radiation ${s.sc.r} &middot; terrain ${s.sc.t} &middot; dust ${s.sc.d}</p>` +
     `<ul class="facts" style="display:none">${s.facts.map(f=>`<li>${f}</li>`).join('')}</ul>` +
     `<p class="src" style="display:none">Sources: ${s.src}</p>`;
   card.onclick = () => flyToSite(i, true);
   listEl.appendChild(card);
 });
+
+function setPriority(p) {
+  curPriority = p;
+  document.querySelectorAll('#picker button').forEach(b => b.classList.toggle('on', b.dataset.p === p));
+  /* score chips on the site cards */
+  SITES.forEach((s, i) => {
+    const v = siteIndex(s, p), chip = document.getElementById('score-' + i);
+    chip.style.setProperty('--p', v);
+    chip.querySelector('span').textContent = v;
+  });
+  /* live re-ranked list */
+  const order = SITES.map((s, i) => ({ s, i, v: siteIndex(s, p) })).sort((a, b) => b.v - a.v);
+  document.getElementById('rank-list').innerHTML = order.map((o, rank) =>
+    `<div class="rank-row" style="--c:${o.s.color}">
+       <div class="rank-num">${rank + 1}</div>
+       <div class="rank-main">
+         <span class="rank-name">${o.s.name}</span>${rank === 0 ? '<span class="badge">Recommended for this priority</span>' : ''}
+         <div class="rank-bar"><i style="width:${o.v}%"></i></div>
+         <div class="rank-sub">water ${o.s.sc.w} &middot; radiation ${o.s.sc.r} &middot; terrain ${o.s.sc.t} &middot; dust ${o.s.sc.d}</div>
+       </div>
+       <div class="rank-val">${o.v}</div>
+     </div>`).join('');
+}
+setPriority('balanced');
 
 function flyToSite(i, fromCard) {
   const s = SITES[i];
@@ -326,6 +523,9 @@ function flyToSite(i, fromCard) {
   card.classList.add('sel');
   card.querySelectorAll('.facts,.src').forEach(e => e.style.display = 'block');
   if (fromCard) { card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); map.flyTo([s.lat, s.lon], 6, { duration: 1.4 }); }
+  if (!window.__fromGlobe) {
+    if (window.__globeFocus) window.__globeFocus(i); else window.__pendingGlobeFocus = i;
+  }
 }
 
 SITES.forEach((s, i) => {
@@ -340,6 +540,7 @@ SITES.forEach((s, i) => {
 map.fitBounds(L.latLngBounds(SITES.map(s => [s.lat, s.lon])).pad(0.12));
 
 function showTab(name) {
+  document.body.classList.remove('panel-closed');
   ['sites','compare','safety'].forEach(t => {
     document.getElementById('page-' + t).classList.toggle('on', t === name);
     document.getElementById('tab-' + t).classList.toggle('on', t === name);
@@ -352,6 +553,18 @@ if (qp.get('tab')) showTab(qp.get('tab'));
 if (qp.get('site')) { const i = +qp.get('site'); showTab('sites'); flyToSite(i, true); }
 if (qp.get('mola') === '1') { document.getElementById('sw-mola').click(); }
 if (qp.get('geo') === '1') { document.getElementById('sw-geo').click(); }
+if (qp.get('about') === '1') openAbout();
+if (qp.get('priority') && PRIORITIES[qp.get('priority')]) setPriority(qp.get('priority'));
+
+/* ---- view toggle: 3D globe hero vs 2D science map ---- */
+function setView(v) {
+  const globe = v === 'globe';
+  document.body.classList.toggle('view-2d', !globe);
+  document.getElementById('view-globe-btn').classList.toggle('on', globe);
+  document.getElementById('view-2d-btn').classList.toggle('on', !globe);
+  if (!globe) map.invalidateSize();
+}
+if (qp.get('view') === '2d') setView('2d');
 
 /* ---- DONKI: recent solar events (solar context, NOT Mars radiation) ---- */
 (async function loadDONKI() {
@@ -379,6 +592,165 @@ if (qp.get('geo') === '1') { document.getElementById('sw-geo').click(); }
     el.innerHTML = `<p style="font-size:13px">Live query unavailable right now (demo-key rate limit). Full catalog:
       <a href="https://ccmc.gsfc.nasa.gov/tools/DONKI/" target="_blank">NASA CCMC DONKI</a>; free API key: <a href="https://api.nasa.gov" target="_blank">api.nasa.gov</a>.</p>`;
   }
+})();
+</script>
+<script>
+/* ---- 3D Mars globe hero (Three.js; texture: Solar System Scope, CC BY 4.0) ---- */
+(function initGlobe() {
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  } catch (e) {
+    /* no WebGL: fall back to the 2D science map and hide the toggle */
+    setView('2d');
+    document.getElementById('view-toggle').style.display = 'none';
+    return;
+  }
+  const wrap = document.getElementById('globe-wrap');
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  wrap.appendChild(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100);
+  camera.position.set(0, 0.3, 4.9);
+  camera.lookAt(0, 0, 0);
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+  const sun = new THREE.DirectionalLight(0xfff2e2, 1.15);
+  sun.position.set(4, 2, 3.5);
+  scene.add(sun);
+
+  const group = new THREE.Group();
+  group.rotation.x = 0.28;
+  scene.add(group);
+
+  const R = 1.42;
+  const mars = new THREE.Mesh(
+    new THREE.SphereGeometry(R, 72, 72),
+    new THREE.MeshStandardMaterial({ roughness: 1, metalness: 0 })
+  );
+  group.add(mars);
+  const texLoader = new THREE.TextureLoader();
+  texLoader.load('mars-texture.jpg', t => { mars.material.map = t; mars.material.needsUpdate = true; });
+
+
+  /* subtle atmosphere rim */
+  const atmo = new THREE.Mesh(
+    new THREE.SphereGeometry(R * 1.04, 64, 64),
+    new THREE.MeshBasicMaterial({ color: 0xff7a45, transparent: true, opacity: 0.09, side: THREE.BackSide, blending: THREE.AdditiveBlending, depthWrite: false })
+  );
+  group.add(atmo);
+
+  /* frame the whole planet on narrow/portrait screens, lifted above the bottom sheet */
+  function fitCamera() {
+    const aspect = window.innerWidth / window.innerHeight;
+    camera.aspect = aspect;
+    if (aspect >= 1) {
+      camera.position.z = 4.9; group.position.y = 0;
+    } else {
+      const halfW = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * aspect;
+      camera.position.z = Math.max(4.9, (R * 1.18) / halfW);
+      group.position.y = 0.55;
+    }
+    camera.updateProjectionMatrix();
+  }
+  fitCamera();
+
+  function latLonToVec3(lat, lon, r) {
+    const phi = (90 - lat) * Math.PI / 180, theta = (lon + 180) * Math.PI / 180;
+    return new THREE.Vector3(-r * Math.sin(phi) * Math.cos(theta), r * Math.cos(phi), r * Math.sin(phi) * Math.sin(theta));
+  }
+
+  /* glowing site markers */
+  function glowSprite(color) {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const g = c.getContext('2d');
+    const grad = g.createRadialGradient(64, 64, 4, 64, 64, 62);
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(0.18, color);
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = grad; g.fillRect(0, 0, 128, 128);
+    const tex = new THREE.CanvasTexture(c);
+    return new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+  }
+  const markers = SITES.map((s, i) => {
+    const m = glowSprite(s.color);
+    m.position.copy(latLonToVec3(s.lat, s.lon, R * 1.02));
+    m.scale.set(0.22, 0.22, 1);
+    m.userData.index = i;
+    group.add(m);
+    return m;
+  });
+
+  /* drag to rotate; auto-rotate when idle */
+  let dragging = false, px = 0, py = 0, moved = 0;
+  let targetY = null, targetX = null;
+  const el = renderer.domElement;
+  el.style.touchAction = 'none';
+  el.addEventListener('pointerdown', e => { dragging = true; moved = 0; px = e.clientX; py = e.clientY; });
+  window.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    const dx = e.clientX - px, dy = e.clientY - py;
+    moved += Math.abs(dx) + Math.abs(dy);
+    group.rotation.y += dx * 0.005;
+    group.rotation.x = Math.max(-1.1, Math.min(1.1, group.rotation.x + dy * 0.003));
+    px = e.clientX; py = e.clientY;
+    targetY = targetX = null;
+  });
+  window.addEventListener('pointerup', e => {
+    if (!dragging) return;
+    dragging = false;
+    if (moved < 6) pickSite(e.clientX, e.clientY);
+  });
+
+  const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
+  function pickSite(cx, cy) {
+    ptr.x = (cx / window.innerWidth) * 2 - 1;
+    ptr.y = -(cy / window.innerHeight) * 2 + 1;
+    ray.setFromCamera(ptr, camera);
+    const hit = ray.intersectObjects(markers)[0];
+    if (hit) focusSite(hit.object.userData.index);
+  }
+
+  function focusSite(i) {
+    const s = SITES[i], p = latLonToVec3(s.lat, s.lon, 1);
+    /* rotate so the site faces the camera, tilt toward its latitude */
+    targetY = -Math.atan2(p.x, p.z);
+    const cur = group.rotation.y;
+    while (targetY - cur > Math.PI) targetY -= 2 * Math.PI;
+    while (targetY - cur < -Math.PI) targetY += 2 * Math.PI;
+    targetX = Math.max(-1.1, Math.min(1.1, s.lat * Math.PI / 180 + 0.06));
+    showTab('sites');
+    window.__fromGlobe = true;
+    flyToSite(i, true);
+    window.__fromGlobe = false;
+  }
+  window.__globeFocus = focusSite;
+  if (window.__pendingGlobeFocus != null) { focusSite(window.__pendingGlobeFocus); window.__pendingGlobeFocus = null; }
+
+  window.addEventListener('resize', () => {
+    fitCamera();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  let t0 = performance.now(), holdUntil = 0;
+  (function loop(now) {
+    requestAnimationFrame(loop);
+    const t = (now - t0) / 1000;
+    if (targetY !== null) {
+      group.rotation.y += (targetY - group.rotation.y) * 0.07;
+      group.rotation.x += (targetX - group.rotation.x) * 0.07;
+      if (Math.abs(targetY - group.rotation.y) < 0.002) { targetY = targetX = null; holdUntil = t + 12; }
+    } else if (!dragging && t > holdUntil) {
+      group.rotation.y += 0.0016;
+    }
+    markers.forEach((m, i) => {
+      const s = 0.22 + Math.sin(t * 2.6 + i * 1.7) * 0.028;
+      m.scale.set(s, s, 1);
+    });
+    renderer.render(scene, camera);
+  })(t0);
 })();
 </script>
 </body>
